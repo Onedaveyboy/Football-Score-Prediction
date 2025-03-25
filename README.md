@@ -12,7 +12,7 @@ This project implements a **Poisson regression model** to predict the outcome of
 The main steps in the model development are:
 
 1. **Data Loading & Cleaning**  
-   Load historical premier league match data and prepare it for analysis (I get the data from [here](https://www.football-data.co.uk/englandm.php)).
+   Load historical Premier League match data and prepare it for analysis (I get the data from [here](https://www.football-data.co.uk/englandm.php)).
 
 2. **Exploratory Data Analysis (EDA)**  
    Visualize goal distributions and inspect home/away effects.
