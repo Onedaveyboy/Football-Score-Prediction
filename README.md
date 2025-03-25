@@ -53,7 +53,7 @@ The main steps in the model development are:
 - This model assumes goal scoring follows a Poisson distribution.
 - For real-world betting or forecasting, more features (like player injuries, weather, etc.) should be considered.
 
-## 🧑‍💻 Author
+## Author
 
 - **David William Shanks** – MSc Student, University of Bath  
   [GitHub Profile](https://github.com/Onedaveyboy)
