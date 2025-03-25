@@ -1,0 +1,103 @@
+```{r}
+library(dplyr)
+library(ggplot2)
+library(MASS)  
+library(caret) 
+library(zoo)
+```
+
+```{r}
+# Importing historical Premier League data
+PL2021 <- read.csv('PL2021.csv')
+PL2122 <- read.csv('PL2122.csv')
+PL2223 <- read.csv('PL2223.csv')
+PL2324 <- read.csv('PL2324.csv')
+PL2425 <- read.csv('PL2425.csv')
+```
+
+```{r}
+# Finding the common columns of the data frames
+common_cols <- Reduce(intersect, list(names(PL2021), names(PL2122), 
+                                      names(PL2223), names(PL2324), names(PL2425)))
+```
+
+```{r}
+# Ensuring all the data frames have the same columns (i.e. each year has data on the same variables)
+PL2021 <- PL2021[common_cols]
+PL2122 <- PL2122[common_cols]
+PL2223 <- PL2223[common_cols]
+PL2324 <- PL2324[common_cols]
+PL2425 <- PL2425[common_cols]
+```
+
+```{r}
+# Adjusting variable types so we can merge the data frames
+PL2425$PC.2.5.1 <- as.numeric(PL2425$PC.2.5.1)
+PL2425$PC.2.5 <- as.numeric(PL2425$PC.2.5)
+```
+
+```{r}
+# Columns: HomeTeam, AwayTeam, FTHG (Full Time Home Team Goals), FTAG (Full Time Away Team Goals), 
+# HS (Home Team Shots), AS (Away Team Shots), HST (Home Team Shots on Target), 
+# AST (Away Team Shots on target) etc.
+PL <- bind_rows(PL2021, PL2122, PL2223, PL2324, PL2425)
+```
+
+```{r}
+# Feature Engineering: Compute averages for past 5 matches
+PL <- PL %>% 
+  group_by(HomeTeam) %>%
+  mutate(home_avg_goals_scored = rollmean(FTHG, 5, fill = NA, align = "right"),
+         home_avg_goals_conceded = rollmean(FTAG, 5, fill = NA, align = "right")) %>%
+  ungroup() %>%
+  group_by(AwayTeam) %>%
+  mutate(away_avg_goals_scored = rollmean(FTAG, 5, fill = NA, align = "right"),
+         away_avg_goals_conceded = rollmean(FTHG, 5, fill = NA, align = "right")) %>%
+  ungroup()
+
+# Remove NA rows (matches where we don't have 5 previous games)
+PL <- na.omit(PL)
+```
+
+```{r}
+# Train Poisson Regression Models
+home_model <- glm(FTHG ~ home_avg_goals_scored + away_avg_goals_conceded, 
+                  family = poisson, data = PL)
+away_model <- glm(FTAG ~ away_avg_goals_scored + home_avg_goals_conceded, 
+                  family = poisson, data = PL)
+```
+
+```{r}
+# Make Predictions for an Upcoming Match
+predict_match <- function(HomeTeam, AwayTeam, data, home_model, away_model) {
+  
+  # Extract past averages
+  home_stats <- data %>% filter(HomeTeam == !!HomeTeam) %>% tail(1)
+  away_stats <- data %>% filter(AwayTeam == !!AwayTeam) %>% tail(1)
+  
+  if (nrow(home_stats) == 0 | nrow(away_stats) == 0) {
+    return("Not enough data for prediction")
+  }
+  
+  new_data <- data.frame(
+    home_avg_goals_scored = home_stats$home_avg_goals_scored,
+    away_avg_goals_conceded = away_stats$away_avg_goals_conceded,
+    away_avg_goals_scored = away_stats$away_avg_goals_scored,
+    home_avg_goals_conceded = home_stats$home_avg_goals_conceded
+  )
+  
+  # Predict expected goals
+  home_expected_goals <- predict(home_model, new_data, type = "response")
+  away_expected_goals <- predict(away_model, new_data, type = "response")
+  
+  return(paste(HomeTeam, round(home_expected_goals, 2), "-", round(away_expected_goals, 2), AwayTeam))
+}
+```
+
+```{r}
+predict_match("West Ham", "Newcastle", PL, home_model, away_model)
+```
+
+
+
+
